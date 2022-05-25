@@ -607,72 +607,88 @@ if __name__=='__main__':
 	  TRUE['X'][j]=np.round(X_true_test)
 	  TRUE['Y'][j]=np.round(Y_true_test)
 	  
-
 	  ErrorA=np.zeros(n_simul);ErrorB=np.zeros(n_simul)
 
-	DIFF=np.zeros(n_simul)
-	for j in range(n_simul):
-	  T_true_test=TRUE['T'][j];T_true_test=np.round(T_true_test+np.random.normal(0,0.3))
-	  X_true_test=TRUE['X'][j];X_true_test=np.round(X_true_test)
-	  Y_true_test=TRUE['Y'][j];Y_true_test=np.round(Y_true_test)
-	  
-	  T_pred=PREDICTIONS['T'][j]
-	  X_pred=PREDICTIONS['X'][j]
-	  Y_pred=PREDICTIONS['Y'][j]
-	  
-	  n_stop=20
-	  indices=np.arange(n_stop)
-	  Et=sq_diff(T_pred[indices],simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop])
-	  Ey=sq_diff(Y_pred[indices],simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop])
-	  Ex=sq_diff(X_pred[indices],simulated_output_Hawkes_train_test['G_tot_x_test'][0,:n_stop])
-	  ErrorA[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
+	nums=[10,20,30]
+	EA=np.zeros(len(nums));EB=EA;EC=EA
+	for i,n_stop in enumerate(nums):
+		DIFF=np.zeros(n_simul)
+		for j in range(n_simul):
+		  T_true_test=TRUE['T'][j];T_true_test=np.round(T_true_test+np.random.normal(0,0.3))
+		  X_true_test=TRUE['X'][j];X_true_test=np.round(X_true_test)
+		  Y_true_test=TRUE['Y'][j];Y_true_test=np.round(Y_true_test)
+		  
+		  T_pred=PREDICTIONS['T'][j]
+		  X_pred=PREDICTIONS['X'][j]
+		  Y_pred=PREDICTIONS['Y'][j]
+		  
+		  
+		  
+		  indices=np.arange(n_stop)
+		  Et=sq_diff(T_pred[indices],simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop])
+		  Ey=sq_diff(Y_pred[indices],simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop])
+		  Ex=sq_diff(X_pred[indices],simulated_output_Hawkes_train_test['G_tot_x_test'][0,:n_stop])
+		  ErrorA[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
 
-	  Et=sq_diff(np.mean(TRUE['T'],0)[indices],T_pred[indices])
-	  Ex=sq_diff(np.mean(TRUE['X'],0)[indices],X_pred[indices])
-	  Ey=sq_diff(np.mean(TRUE['Y'],0)[indices],Y_pred[indices])
-	  ErrorB[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
-
-
-	Et=sq_diff(np.mean(TRUE['T'],0)[indices],np.mean(PREDICTIONS['T'],0)[indices])
-	Ex=sq_diff(np.mean(TRUE['X'],0)[indices],np.mean(PREDICTIONS['X'],0)[indices])
-	Ey=sq_diff(np.mean(TRUE['Y'],0)[indices],np.mean(PREDICTIONS['Y'],0)[indices])
-
-	#Et=sq_diff(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop],np.mean(PREDICTIONS['T'],0)[indices])
-	#Ex=sq_diff(simulated_output_Hawkes_train_test['G_tot_x_test'][0,:n_stop],np.mean(PREDICTIONS['X'],0)[indices])
-	#Ey=sq_diff(simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop],np.mean(PREDICTIONS['Y'],0)[indices])
+		  Et=sq_diff(np.mean(TRUE['T'],0)[indices],T_pred[indices])
+		  Ex=sq_diff(np.mean(TRUE['X'],0)[indices],X_pred[indices])
+		  Ey=sq_diff(np.mean(TRUE['Y'],0)[indices],Y_pred[indices])
+		  ErrorB[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
 
 
-	ErrorC=np.sqrt(Ex+Ey)+np.sqrt(+Et)
+		Et=sq_diff(np.mean(TRUE['T'],0)[indices],np.mean(PREDICTIONS['T'],0)[indices])
+		Ex=sq_diff(np.mean(TRUE['X'],0)[indices],np.mean(PREDICTIONS['X'],0)[indices])
+		Ey=sq_diff(np.mean(TRUE['Y'],0)[indices],np.mean(PREDICTIONS['Y'],0)[indices])
 
-	print(np.mean(ErrorA))
-	print(np.mean(ErrorB))
-	print(np.mean(ErrorC))
-
-	#### save the predictions
-
-
-	fig,ax=plt.subplots(1,1,figsize=(10,5))
-	ax.plot(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:],'blue',label='simulated')
-	f_tpred_hpdi = hpdi(PREDICTIONS['T'], 0.9)
-	f_tpred_mean=np.mean(PREDICTIONS['T'],0)
-
-	ax.plot(f_tpred_mean,'red',label='post_pred_mean')
-	ax.fill_between(np.arange(0,n_test), f_tpred_hpdi[0], f_tpred_hpdi[1], alpha=0.4, color="palegoldenrod", label="90%CI rate")
-	plt.legend()
+		#Et=sq_diff(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop],np.mean(PREDICTIONS['T'],0)[indices])
+		#Ex=sq_diff(simulated_output_Hawkes_train_test['G_tot_x_test'][0,:n_stop],np.mean(PREDICTIONS['X'],0)[indices])
+		#Ey=sq_diff(simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop],np.mean(PREDICTIONS['Y'],0)[indices])
 
 
-	save_me=True
-	data_folder='data_LGCP_Hawkes/'
-	model_folder='model_LGCP_Hawkes/'
+		ErrorC=np.sqrt(Ex+Ey)+np.sqrt(+Et)
 
-	folder_name='simulation_comparison/'
+		print(np.mean(ErrorA))
+		print(np.mean(ErrorB))
+		print(np.mean(ErrorC))
+
+		EA[i]=np.mean(ErrorA)
+		EB[i]=np.mean(ErrorB)
+		EC[i]=np.mean(ErrorC)
+
+		#### save the predictions
+
+
+		fig,ax=plt.subplots(1,1,figsize=(10,5))
+		ax.plot(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:],'blue',label='simulated')
+		f_tpred_hpdi = hpdi(PREDICTIONS['T'], 0.9)
+		f_tpred_mean=np.mean(PREDICTIONS['T'],0)
+
+		ax.plot(f_tpred_mean,'red',label='post_pred_mean')
+		ax.fill_between(np.arange(0,n_test), f_tpred_hpdi[0], f_tpred_hpdi[1], alpha=0.4, color="palegoldenrod", label="90%CI rate")
+		plt.legend()
+
+
+		save_me=True
+		data_folder='data_LGCP_Hawkes/'
+		model_folder='model_LGCP_Hawkes/'
+		folder_name='simulation_comparison/'
 
 	if save_me:
-		output_dict={}
-		output_dict['prediction_error_A '+str(simulation_number)]=np.mean(ErrorA)
-		output_dict['prediction_error_B '+str(simulation_number)]=np.mean(ErrorB)
-		output_dict['prediction_error_C '+str(simulation_number)]=np.mean(ErrorC)
+		#output_dict={}
+		#output_dict['prediction_error_A '+str(simulation_number)]=np.mean(ErrorA)
+		#output_dict['prediction_error_B '+str(simulation_number)]=np.mean(ErrorB)
+		#output_dict['prediction_error_C '+str(simulation_number)]=np.mean(ErrorC)
 	  
-		with open(filename+'prediction_error'+'.pkl', 'wb') as handle:
-		  dill.dump(output_dict, handle)
+		#with open(filename+'prediction_error'+'.pkl', 'a+') as handle:
+	#  dill.dump(output_dict, handle)
+		#EA='prediction_error_A'+str(simulation_number)+' '+str(np.mean(ErrorA)) +'\n'
+		#EB='prediction_error_B '+str(simulation_number)+' '+str(np.mean(ErrorB)) +'\n'
+		#EC='prediction_error_C '+str(simulation_number)+' '+str(np.mean(ErrorC)) +'\n'
+		with open(filename+'prediction_error_A'+'.txt', 'a') as f:
+			f.write(str(EA)+'\n')
+		with open(filename+'prediction_error_B'+'.txt', 'a') as f:			
+			f.write(str(EB)+'\n')
+		with open(filename+'prediction_error_C'+'.txt', 'a') as f:						
+			f.write(str(EC)+'\n')
+
 # visualize
