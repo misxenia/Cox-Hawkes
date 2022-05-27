@@ -685,7 +685,7 @@ if __name__=='__main__':
 		#EB='prediction_error_B '+str(simulation_number)+' '+str(np.mean(ErrorB)) +'\n'
 		#EC='prediction_error_C '+str(simulation_number)+' '+str(np.mean(ErrorC)) +'\n'
 		with open(filename+'prediction_error_A'+'.txt', 'a') as f:
-			f.write(str(EA)+'\n')
+			f.write(str(EA[:])+'\n')
 		with open(filename+'prediction_error_B'+'.txt', 'a') as f:			
 			f.write(str(EB)+'\n')
 		with open(filename+'prediction_error_C'+'.txt', 'a') as f:						

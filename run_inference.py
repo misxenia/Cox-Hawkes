@@ -13,9 +13,9 @@ if __name__=='__main__':
 	from functions import *
 
 	my_parser = argparse.ArgumentParser()
-	my_parser.add_argument('--dataset_name', action='store', default='LGCP-Hawkes' ,type=str, required=False, help='simulated dataset')
+	my_parser.add_argument('--dataset_name', action='store', default='LGCP_Hawkes' ,type=str, required=False, help='simulated dataset')
 	my_parser.add_argument('--simulation_number', action='store',default=1 , type=int, help='simulation series out of 100')
-	my_parser.add_argument('--model_name', action='store',default='LGCP-Hawkes' , type=str, help='model name for inference')
+	my_parser.add_argument('--model_name', action='store',default='LGCP_Hawkes' , type=str, help='model name for inference')
 	my_parser.add_argument('--num_samples', action='store', default=1000 , type=int, help='mcmc iterations')    
 	my_parser.add_argument('--num_warmup', action='store', default=500 , type=int, help='mcmc warmup')    
 	my_parser.add_argument('--num_chains', action='store', default=1 , type=int,help='mcmc num chains')
@@ -48,10 +48,9 @@ if __name__=='__main__':
 	num_chains = args.num_chains
 	num_thinning = args.num_thinning
 	max_tree_depth=args.max_tree_depth
-    
-    #model_name = args.model_name
+	model_name = args.model_name
+	model_name=args.model_name
 
-	#data_name='LGCP-Hawkes'
 
 	load_data=True
 
@@ -72,7 +71,14 @@ if __name__=='__main__':
 	    b_0_true=args['b_0']#simulated_output_background['b_0'];print(b_0_true)
 
 
-	args_train['background']='LGCP'
+	if model_name=='LGCP_Hawkes':
+		args_train['background']='LGCP'
+	elif model_name=='LGCP':
+		args_train['background']='LGCP_only'
+	elif model_name=='Hawkes':
+		args_train['background']='constant'
+	else:
+		args_train['background']='Poisson'
 
 	args_train["hidden_dim_temporal"]= 50
 	args_train["z_dim_temporal"]= 20
@@ -135,7 +141,8 @@ if __name__=='__main__':
 
 	rng_key, rng_key_predict = random.split(random.PRNGKey(3))
 	rng_key, rng_key_post, rng_key_pred = random.split(rng_key, 3)
-	print(args_train['background'])
+	
+	print('background of the process is', args_train['background'])
 
 	if args_train['background']=='LGCP_only':
 	  model_mcmc=spatiotemporal_LGCP_model
@@ -166,8 +173,8 @@ if __name__=='__main__':
 	mcmc_samples=mcmc.get_samples()
 
 	save_me=True
-	data_folder='data_LGCP_Hawkes/'
-	model_folder='model_LGCP_Hawkes/'
+	data_folder='data_'+data_name+'/'
+	model_folder='model_'+model_name+'/'
 
 	folder_name='simulation_comparison/'
 
