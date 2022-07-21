@@ -1,3 +1,7 @@
+#idea is  to 
+#Generate 10k datasets from a set of parameters. 
+#Estimate once from each each of four models for four different dataset types 
+#(one fr each true model)
 
 
 for ((i=0; i<=99; i++))

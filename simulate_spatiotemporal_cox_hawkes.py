@@ -75,7 +75,7 @@ args['background_simulation']='LGCP'
 
 
 
-num_reps=3
+num_reps=40
 
 for i in range(num_reps):
 
@@ -92,8 +92,6 @@ for i in range(num_reps):
       a_0_true=args['a_0'] #simulated_output_background['a_0'];print(a_0_true)
       rate_xy_events_true=np.exp(a_0_true)*np.ones(n_obs_back)
       b_0_true=args['b_0']#simulated_output_background['b_0'];print(b_0_true)
-
-
 
 
   if not(load_data):
@@ -263,7 +261,7 @@ for i in range(num_reps):
 
 
   #data_name='LGCP-Hawkes-'+str(i)
-  data_name='LGCP-Hawkes'
+  data_name='LGCP_Hawkes'
 
 
   if not(load_data):

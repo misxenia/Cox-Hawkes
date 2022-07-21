@@ -1,4 +1,4 @@
-
+#####
 
 if __name__=='__main__':
     
@@ -14,7 +14,7 @@ if __name__=='__main__':
 
 	my_parser = argparse.ArgumentParser()
 	my_parser.add_argument('--dataset_name', action='store', default='LGCP_Hawkes' ,type=str, required=False, help='simulated dataset')
-	my_parser.add_argument('--simulation_number', action='store',default=1 , type=int, help='simulation series out of 100')
+	my_parser.add_argument('--simulation_number', action='store',default=0 , type=int, help='simulation series out of 100')
 	my_parser.add_argument('--model_name', action='store',default='LGCP_Hawkes' , type=str, help='model name for inference')
 	my_parser.add_argument('--num_samples', action='store', default=1000 , type=int, help='mcmc iterations')    
 	my_parser.add_argument('--num_warmup', action='store', default=500 , type=int, help='mcmc warmup')    
@@ -23,13 +23,15 @@ if __name__=='__main__':
 	my_parser.add_argument('--max_tree_depth', action='store', default=20, type=int,help='max_tree_depth')
 
     #num_chains, thinning
-
 	args = my_parser.parse_args()
     
     
     #### choose simulated dataset to run inference on
 	data_name = args.dataset_name
-	print(data_name)
+	model_name = args.model_name
+
+	print('data', data_name)
+	print('model', model_name)
     ## making sure have got correct file paths
     #script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
     
@@ -48,8 +50,6 @@ if __name__=='__main__':
 	num_chains = args.num_chains
 	num_thinning = args.num_thinning
 	max_tree_depth=args.max_tree_depth
-	model_name = args.model_name
-	model_name=args.model_name
 
 
 	load_data=True
@@ -64,7 +64,7 @@ if __name__=='__main__':
 	    simulated_output_Hawkes_train_test=output_dict['simulated_output_Hawkes_train_test'+str(i)]
 	    args_train=output_dict['args_train']
 	    args=output_dict['args']
-	    data_name=output_dict['data_name']
+	    #data_name=output_dict['data_name']
 	    a_0_true=args['a_0'] #simulated_output_background['a_0'];print(a_0_true)
 	    n_obs=simulated_output_Hawkes['G_tot_t'].size
 	    rate_xy_events_true=np.exp(a_0_true)*np.ones(n_obs)
@@ -173,13 +173,15 @@ if __name__=='__main__':
 	mcmc_samples=mcmc.get_samples()
 
 	save_me=True
+
 	data_folder='data_'+data_name+'/'
 	model_folder='model_'+model_name+'/'
 
 	folder_name='simulation_comparison/'
 
 	if save_me:
-		filename='output/'+folder_name+data_folder+model_folder		
+		filename='output/'+folder_name+data_folder+model_folder	
+		print('saving results in', filename)
 		output = {}
 		output['model']=model_mcmc
 		#output_dict['guide']=guide

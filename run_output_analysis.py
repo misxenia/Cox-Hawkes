@@ -14,9 +14,9 @@ if __name__=='__main__':
 	from numpyro.infer import Predictive
 
 	my_parser = argparse.ArgumentParser()
-	my_parser.add_argument('--dataset_name', action='store', default='LGCP-Hawkes' ,type=str, required=False, help='simulated dataset')
+	my_parser.add_argument('--dataset_name', action='store', default='LGCP_Hawkes' ,type=str, required=False, help='simulated dataset')
 	my_parser.add_argument('--simulation_number', action='store',default=0 , type=int, help='simulation series out of 100')
-	my_parser.add_argument('--model_name', action='store',default='LGCP-Hawkes' , type=str, help='model name for inference')
+	my_parser.add_argument('--model_name', action='store',default='LGCP_Hawkes' , type=str, help='model name for inference')
 	
     #num_chains, thinning
 
@@ -24,10 +24,10 @@ if __name__=='__main__':
     
        
     #### choose simulated dataset to run inference on
-	data_name = args.dataset_name
+	data_name = args.dataset_name;
+	print('Data name',data_name)
 	model_name = args.model_name
-	
-	print(data_name)
+	print('Model name',model_name)
     ## making sure have got correct file paths
     #script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
     
@@ -65,9 +65,9 @@ if __name__=='__main__':
 
 
 	# read output
-	if data_name=='LGCP-Hawkes':
+	if data_name=='LGCP_Hawkes' or 'LGCP-Hawkes':
 		data_folder='data_LGCP_Hawkes/'
-	if model_name=='LGCP-Hawkes':
+	if model_name=='LGCP_Hawkes' or 'LGCP-Hawkes':
 		model_folder='model_LGCP_Hawkes/'
 	
 	filename='output/simulation_comparison/'+data_folder+model_folder
@@ -78,9 +78,17 @@ if __name__=='__main__':
 		mcmc_samples=output['samples']
 		mcmc=output['mcmc']
 		args_train=output['args_train']
+		print('Parameters estiamted by mcmc are ',mcmc_samples.keys())
 
 
-	args_train['background']='LGCP'
+	if model_name=='LGCP_only':
+		args_train['background']='LGCP_only'
+	elif model_name=='LGCP_Hawkes':
+		args_train['background']='LGCP'
+
+
+
+
 
 	n_train=simulated_output_Hawkes_train_test['G_tot_t_train'].size
 	t_events_total=simulated_output_Hawkes_train_test['G_tot_t_train'][0]
@@ -221,10 +229,11 @@ if __name__=='__main__':
 	  f_t_pred_mean=jnp.mean(f_t_pred, axis=0)
 	  f_t_pred_mean.shape
 	  f_t_hpdi = hpdi(f_t_pred, 0.9)
-	  f_t_hpdi.shape
+	  #f_t_hpdi.shape
 	#f_t_pred_mean=jnp.mean(f_t_pred, axis=0)[0:T_train]
 	#f_t_hpdi = hpdi(f_t_pred, 0.9)[0:T_train]
 
+	##extract the last 500 samples and get the mean
 	post_samples=500
 	n_total=simulated_output_Hawkes['G_tot_x'].size
 	a_0_post_mean=np.array(mcmc_samples['a_0'][n_total-post_samples:n_total].mean())
@@ -376,6 +385,8 @@ if __name__=='__main__':
 	args_test['n_xy']=args['n_xy']
 	args_test['x_xy']=args['x_xy']
 	args_test['a_0']=a_0_post_mean
+	args_test['n_samples']=n_simul
+	args_test['n_total']=n_total
 
 	if args_train['background']!='constant':
 	  args_test['hidden_dim_temporal']=args_train["hidden_dim_temporal"]
@@ -395,7 +406,7 @@ if __name__=='__main__':
 	  if typ=='prior':
 	    z_temporal= numpyro.sample("z_temporal",dist.Normal(jnp.zeros(args["z_dim_temporal"])), jnp.ones(args["z_dim_temporal"]))
 	  else:
-	    z_temporal=numpyro.deterministic("z_temporal",np.mean(mcmc_samples['z_temporal'][100:],0))
+	    z_temporal=numpyro.deterministic("z_temporal",np.mean(mcmc_samples['z_temporal'][args['n_total']-args['n_samples']:args['n_total']],0))
 
 	  decoder_nn_temporal = vae_decoder_temporal(args["hidden_dim_temporal"], args["n_t"])  
 	  decoder_params = args["decoder_params_temporal"]
@@ -412,7 +423,7 @@ if __name__=='__main__':
 	  if typ=='prior':
 	    z_spatial = numpyro.sample("z_spatial", dist.Normal(jnp.zeros(args["z_dim_spatial"]), jnp.ones(args["z_dim_spatial"])))
 	  else:
-	    z_spatial=numpyro.deterministic("z_spatial",np.mean(mcmc_samples['z_spatial'][n_total-500:n_total],0))
+	    z_spatial=numpyro.deterministic("z_spatial",np.mean(mcmc_samples['z_spatial'][args['n_total']-args['n_samples']:args['n_total']],0))
 
 	  decoder_nn = vae_decoder_spatial(args["hidden_dim2_spatial"], args["hidden_dim1_spatial"], args["n_xy"])  
 	  decoder_params = args["decoder_params_spatial"]
@@ -430,7 +441,7 @@ if __name__=='__main__':
 
 	#plt.plot(np.exp(GP_predictive_samples['f_t'][0]+a_0_post_mean))
 	#plt.hist(simulated_output_Hawkes['G_tot_t'][0])
-	plt.plot(GP_predictive_samples['f_t'][0])
+	#plt.plot(GP_predictive_samples['f_t'][0])
 
 	if save_me:
 		mypath='GPt_post_test.png'
@@ -467,60 +478,10 @@ if __name__=='__main__':
 	args_test['x_t']=np.arange(50,80,1)
 
 
-	n_simul=1
-	#T_PRED=np.zeros((n_simul,n_obs));Y_pred_all=T_pred_all;X_pred_all=T_pred_all
-	#T_PRED=np.zeros((n_simul,n_test));X_PRED=T_PRED;Y_PRED=T_PRED;
-	ErrorA=np.zeros(n_simul);ErrorB=np.zeros(n_simul)
-	fig,ax=plt.subplots(1,1,figsize=(10,5))
-
-	for j in range(0,n_simul):
-	  if j%20 ==0:
-	    print('testing sample')
-	  if args_train['background']=='LGCP':
-	    T_pred, X_pred, Y_pred, T_pred_all,X_pred_all,Y_pred_all=simulate_spatiotemporal_hawkes_predictions(past_times, 
-	      past_locs, N_new, args_train['x_min'], args_train['x_max'], args_train['y_min'], args_train['y_max'],lambda_0_post_samples[j], alpha_post_samples[j], beta_post_samples[j], sigma_x_2_post_samples[j], 
-	      GP_predictive_samples['Itot_xy'][0],args_train['background'], np.array(GP_predictive_samples['f_t'][j])) 
-	    
-	  elif args_train['background']=='constant':
-	    T_pred, X_pred, Y_pred, T_pred_all,X_pred_all,Y_pred_all=simulate_spatiotemporal_hawkes_predictions(past_times, 
-	      past_locs, N_new, args_train['x_min'], args_train['x_max'], args_train['y_min'], args_train['y_max'], lambda_0_post_samples[j], alpha_post_samples[j], beta_post_samples[j], sigma_x_2_post_samples[j], 
-	     GP_predictive_samples['Itot_xy'], args_train['background'])  
-	    
-	  elif args_train['background']=='LGCP_only':
-
-	    
-	    N_0=n_test
-	    ind_t_i, t_i, rate_t_i=rej_sampling_new(N_0, np.arange(args_train['T'], T_test,1), lambda_0_post_samples[j]*np.exp(GP_predictive_samples['f_t'][j][args_train['T']:]), 30)
-	    N_0 = t_i.shape[0]
-	    ind_xy_i, xy_i, rate_xy_i=rej_sampling_new(N_0, args['x_xy'], GP_predictive_samples['rate_xy'][j,:], args['n_xy']**2)
-
-	    ord=t_i.sort()
-	    T_pred=t_i[ord].flatten()
-	    X_pred=xy_i[:,0][ord].flatten()
-	    Y_pred=xy_i[:,1][ord].flatten()
-	    T_pred_all=np.concatenate((past_times,T_pred.flatten()))
-	    X_pred_all=np.concatenate((past_locs[0],X_pred.flatten()))
-	    Y_pred_all=np.concatenate((past_locs[1],Y_pred.flatten()))
-	  Et=np.sum((T_pred-simulated_output_Hawkes_train_test['G_tot_t_test'][0,:])**2)
-	  Ey=np.sum((Y_pred-simulated_output_Hawkes_train_test['G_tot_y_test'][0,:])**2)
-	  Ex=np.sum((X_pred-simulated_output_Hawkes_train_test['G_tot_x_test'][0,:])**2)
-	  ErrorA[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
-
-	  #nbins_t_exact=plt.hist(np.abs(T_pred),bins=10,density=False);
-	  #nbins_t_pred=plt.hist(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:],bins=10,density=False)
-	  #Error_Bt=np.sqrt(np.sum((nbins_t_exact[0]-nbins_t_pred[0])**2))
-	  #nbins_x_exact=plt.hist(np.abs(X_pred),bins=10,density=False);nbins_x_pred=plt.hist(simulated_output_Hawkes_train_test['G_tot_x_test'][0,:],bins=10,density=False)
-	  #nbins_y_exact=plt.hist(np.abs(Y_pred),bins=10,density=False);nbins_y_pred=plt.hist(simulated_output_Hawkes_train_test['G_tot_y_test'][0,:],bins=10,density=False)
-	  #Error_Bx=np.sqrt(np.sum((nbins_x_exact[0]-nbins_x_pred[0])**2))
-	  #Error_By=np.sqrt(np.sum((nbins_y_exact[0]-nbins_y_pred[0])**2))
-	  #ErrorB[j]=Error_Bt+np.sqrt(Error_Bx**2+Error_By**2)
-	  
-	  ax.plot(T_pred,'red')
-	  ax.plot(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:])
-
+	
 	post_mean=True
-	f_t_pred_mean=np.mean(GP_predictive_samples['f_t'],0)
-
+	f_t_pred_mean=jnp.array(np.mean(GP_predictive_samples['f_t'][:,:],0));
+	f_xy_pred_mean=np.mean(GP_predictive_samples['f_xy'],0);
 
 	x_min, x_max, y_min, y_max=0,1,0,1
 	n_simul=100
@@ -547,11 +508,11 @@ if __name__=='__main__':
 	    if post_mean:
 	      T_pred, X_pred, Y_pred, T_pred_all,X_pred_all,Y_pred_all=simulate_spatiotemporal_hawkes_predictions(past_times, 
 	        past_locs, N_new, x_min, x_max, y_min, y_max,  lambda_0_post_mean, alpha_post_mean, beta_post_mean, sigma_x_2_post_mean, 
-	         GP_predictive_samples['Itot_xy'][0],args_train['background'],f_t_pred_mean)   
+	         GP_predictive_samples['Itot_xy'][0], args_train['background'], f_t_pred_mean)   
 	    else:
 	      T_pred, X_pred, Y_pred, T_pred_all,X_pred_all,Y_pred_all=simulate_spatiotemporal_hawkes_predictions(past_times, 
 	      past_locs, N_new, x_min, x_max, y_min, y_max,  lambda_0_post_samples[j], alpha_post_samples[j], beta_post_samples[j], sigma_x_2_post_samples[j], 
-	       GP_predictive_samples['Itot_xy'],args_train['background'], np.array(GP_predictive_samples['f_t'][j])) 
+	       GP_predictive_samples['Itot_xy'], args_train['background'], np.array(GP_predictive_samples['f_t'][j])) 
 
 	  elif args_train['background']=='Poisson':
 	      ST_background_predictive = Predictive(spatiotemporal_homogenous_poisson, num_samples=args["batch_size"])
@@ -611,6 +572,7 @@ if __name__=='__main__':
 
 	nums=[10,20,30]
 	EA=np.zeros(len(nums));EB=EA;EC=EA
+	EA_sum=0;EB_sum=0;EC_sum=0
 	for i,n_stop in enumerate(nums):
 		DIFF=np.zeros(n_simul)
 		for j in range(n_simul):
@@ -647,13 +609,13 @@ if __name__=='__main__':
 
 		ErrorC=np.sqrt(Ex+Ey)+np.sqrt(+Et)
 
-		print(np.mean(ErrorA))
-		print(np.mean(ErrorB))
-		print(np.mean(ErrorC))
+		#print(np.mean(ErrorA))
+		#print(np.mean(ErrorB))
+		#print(np.mean(ErrorC))
 
-		EA[i]=np.mean(ErrorA)
-		EB[i]=np.mean(ErrorB)
-		EC[i]=np.mean(ErrorC)
+		EA[i]=np.mean(ErrorA);EA_sum+=EA[i]
+		EB[i]=np.mean(ErrorB);EB_sum+=EB[i]
+		EC[i]=np.mean(ErrorC);EC_sum+=EC[i]
 
 		#### save the predictions
 
@@ -668,10 +630,11 @@ if __name__=='__main__':
 		plt.legend()
 
 
+		#each column gives a different way to calculate the error for each of the 
 		save_me=True
-		data_folder='data_LGCP_Hawkes/'
-		model_folder='model_LGCP_Hawkes/'
-		folder_name='simulation_comparison/'
+		#data_folder='data_LGCP_Hawkes/'
+		#model_folder='model_LGCP_Hawkes/'
+		#folder_name='simulation_comparison/'
 
 	if save_me:
 		#output_dict={}
@@ -680,15 +643,19 @@ if __name__=='__main__':
 		#output_dict['prediction_error_C '+str(simulation_number)]=np.mean(ErrorC)
 	  
 		#with open(filename+'prediction_error'+'.pkl', 'a+') as handle:
-	#  dill.dump(output_dict, handle)
+		#dill.dump(output_dict, handle)
 		#EA='prediction_error_A'+str(simulation_number)+' '+str(np.mean(ErrorA)) +'\n'
 		#EB='prediction_error_B '+str(simulation_number)+' '+str(np.mean(ErrorB)) +'\n'
 		#EC='prediction_error_C '+str(simulation_number)+' '+str(np.mean(ErrorC)) +'\n'
 		with open(filename+'prediction_error_A'+'.txt', 'a') as f:
 			f.write(str(EA[:])+'\n')
+			f.write('\n mean error A'+str(np.mean(EA))+'\n')
 		with open(filename+'prediction_error_B'+'.txt', 'a') as f:			
 			f.write(str(EB)+'\n')
+			f.write('\n'+str(np.mean(EB))+'\n')
 		with open(filename+'prediction_error_C'+'.txt', 'a') as f:						
 			f.write(str(EC)+'\n')
+			f.write('\n'+str(np.mean(EC))+'\n')
+
 
 # visualize
