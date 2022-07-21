@@ -16,7 +16,7 @@ if __name__=='__main__':
 	my_parser = argparse.ArgumentParser()
 	my_parser.add_argument('--dataset_name', action='store', default='LGCP_Hawkes' ,type=str, required=False, help='simulated dataset')
 	my_parser.add_argument('--simulation_number', action='store',default=0 , type=int, help='simulation series out of 100')
-	my_parser.add_argument('--model_name', action='store',default='LGCP_Hawkes' , type=str, help='model name for inference')
+	my_parser.add_argument('--model_name', action='store',default='LGCP' , type=str, help='model name for inference')
 	
     #num_chains, thinning
 
@@ -62,15 +62,20 @@ if __name__=='__main__':
 		alpha=args['alpha']
 		beta=args['beta']
 
+	print('Data name',data_name)
 
-
+	print('Model name',model_name)
 	# read output
 	if data_name=='LGCP_Hawkes' or 'LGCP-Hawkes':
 		data_folder='data_LGCP_Hawkes/'
 	if model_name=='LGCP_Hawkes' or 'LGCP-Hawkes':
 		model_folder='model_LGCP_Hawkes/'
-	
+	if model_name=='LGCP':
+		model_folder='model_LGCP/'
+
+	print('model_folder', model_folder)
 	filename='output/simulation_comparison/'+data_folder+model_folder
+	print(filename)
 
 	with open(filename+'output'+str(simulation_number)+'.pkl', 'rb') as file:
 		output = dill.load(file)
@@ -78,7 +83,6 @@ if __name__=='__main__':
 		mcmc_samples=output['samples']
 		mcmc=output['mcmc']
 		args_train=output['args_train']
-		print('Parameters estiamted by mcmc are ',mcmc_samples.keys())
 
 
 	if model_name=='LGCP_only':
@@ -378,10 +382,14 @@ if __name__=='__main__':
 
 
 	args_test={}
-	n_simul=250
+	
+	n_simul=100
+
 	args_test['n_t']=80
 	args_test['x_t']=np.arange(0,args['T'],1)
 	args_test['T']=80
+	args_test['T_test']=80
+	
 	args_test['n_xy']=args['n_xy']
 	args_test['x_xy']=args['x_xy']
 	args_test['a_0']=a_0_post_mean
@@ -477,14 +485,71 @@ if __name__=='__main__':
 
 	args_test['x_t']=np.arange(50,80,1)
 
+	'''
+	n_simul=1
+	#T_PRED=np.zeros((n_simul,n_obs));Y_pred_all=T_pred_all;X_pred_all=T_pred_all
+	#T_PRED=np.zeros((n_simul,n_test));X_PRED=T_PRED;Y_PRED=T_PRED;
+	ErrorA=np.zeros(n_simul);ErrorB=np.zeros(n_simul)
+	fig,ax=plt.subplots(1,1,figsize=(10,5))
 
-	
+	for j in range(0,n_simul):
+	  if j%20 ==0:
+	    print('testing sample')
+	  if args_train['background']=='LGCP':
+	    T_pred, X_pred, Y_pred, T_pred_all,X_pred_all,Y_pred_all=simulate_spatiotemporal_hawkes_predictions(past_times, 
+	      past_locs, N_new, args_train['x_min'], args_train['x_max'], args_train['y_min'], args_train['y_max'],lambda_0_post_samples[j], alpha_post_samples[j], beta_post_samples[j], sigma_x_2_post_samples[j], 
+	      GP_predictive_samples['Itot_xy'][0],args_train['background'], np.array(GP_predictive_samples['f_t'][j])) 
+	    
+	  elif args_train['background']=='constant':
+	    T_pred, X_pred, Y_pred, T_pred_all,X_pred_all,Y_pred_all=simulate_spatiotemporal_hawkes_predictions(past_times, 
+	      past_locs, N_new, args_train['x_min'], args_train['x_max'], args_train['y_min'], args_train['y_max'], lambda_0_post_samples[j], alpha_post_samples[j], beta_post_samples[j], sigma_x_2_post_samples[j], 
+	     GP_predictive_samples['Itot_xy'], args_train['background'])  
+	    
+	  elif args_train['background']=='LGCP_only':
+
+	    
+	    N_0=n_test
+	    ind_t_i, t_i, rate_t_i=rej_sampling_new(N_0, np.arange(args_train['T'], T_test,1), lambda_0_post_samples[j]*np.exp(GP_predictive_samples['f_t'][j][args_train['T']:]), 30)
+	    N_0 = t_i.shape[0]
+	    ind_xy_i, xy_i, rate_xy_i=rej_sampling_new(N_0, args['x_xy'], GP_predictive_samples['rate_xy'][j,:], args['n_xy']**2)
+
+	    ord=t_i.sort()
+	    T_pred=t_i[ord].flatten()
+	    X_pred=xy_i[:,0][ord].flatten()
+	    Y_pred=xy_i[:,1][ord].flatten()
+	    T_pred_all=np.concatenate((past_times,T_pred.flatten()))
+	    X_pred_all=np.concatenate((past_locs[0],X_pred.flatten()))
+	    Y_pred_all=np.concatenate((past_locs[1],Y_pred.flatten()))
+	  Et=np.sum((T_pred-simulated_output_Hawkes_train_test['G_tot_t_test'][0,:])**2)
+	  Ey=np.sum((Y_pred-simulated_output_Hawkes_train_test['G_tot_y_test'][0,:])**2)
+	  Ex=np.sum((X_pred-simulated_output_Hawkes_train_test['G_tot_x_test'][0,:])**2)
+	  ErrorA[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
+
+	  #nbins_t_exact=plt.hist(np.abs(T_pred),bins=10,density=False);
+	  #nbins_t_pred=plt.hist(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:],bins=10,density=False)
+	  #Error_Bt=np.sqrt(np.sum((nbins_t_exact[0]-nbins_t_pred[0])**2))
+	  #nbins_x_exact=plt.hist(np.abs(X_pred),bins=10,density=False);nbins_x_pred=plt.hist(simulated_output_Hawkes_train_test['G_tot_x_test'][0,:],bins=10,density=False)
+	  #nbins_y_exact=plt.hist(np.abs(Y_pred),bins=10,density=False);nbins_y_pred=plt.hist(simulated_output_Hawkes_train_test['G_tot_y_test'][0,:],bins=10,density=False)
+	  #Error_Bx=np.sqrt(np.sum((nbins_x_exact[0]-nbins_x_pred[0])**2))
+	  #Error_By=np.sqrt(np.sum((nbins_y_exact[0]-nbins_y_pred[0])**2))
+	  #ErrorB[j]=Error_Bt+np.sqrt(Error_Bx**2+Error_By**2)
+	  
+	  ax.plot(T_pred,'red')
+	  ax.plot(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:])
+
+
+	'''
+
 	post_mean=True
 	f_t_pred_mean=jnp.array(np.mean(GP_predictive_samples['f_t'][:,:],0));
 	f_xy_pred_mean=np.mean(GP_predictive_samples['f_xy'],0);
 
 	x_min, x_max, y_min, y_max=0,1,0,1
+	T_test=80
+	T_train=50
+
 	n_simul=100
+
 	PREDICTIONS={};TRUE={}
 	PREDICTIONS['T']=np.zeros((n_simul,n_test));PREDICTIONS['X']=np.zeros((n_simul,n_test));PREDICTIONS['Y']=np.zeros((n_simul,n_test))
 	TRUE['T']=np.zeros((n_simul,n_test));TRUE['X']=np.zeros((n_simul,n_test));TRUE['Y']=np.zeros((n_simul,n_test))
@@ -497,7 +562,7 @@ if __name__=='__main__':
 
 	for j in range(0,n_simul):
 	  if j%20 ==0:
-	    print('sample',j)
+	    print('simulating',j, 'th sequence')
 	    #simulate from the underlying process 
 
 	  T_true_test, X_true_test, Y_true_test, T_pred_all_test, X_pred_all_test,Y_pred_all_test=simulate_spatiotemporal_hawkes_predictions(past_times, 
@@ -560,6 +625,7 @@ if __name__=='__main__':
 	      X_pred_all=np.concatenate((past_locs[0],X_pred.flatten()))
 	      Y_pred_all=np.concatenate((past_locs[1],Y_pred.flatten()))
 	  
+	  #store the predicted and the true events
 	  PREDICTIONS['T'][j]=np.round(T_pred)
 	  PREDICTIONS['X'][j]=np.round(X_pred)
 	  PREDICTIONS['Y'][j]=np.round(Y_pred)
@@ -568,11 +634,11 @@ if __name__=='__main__':
 	  TRUE['X'][j]=np.round(X_true_test)
 	  TRUE['Y'][j]=np.round(Y_true_test)
 	  
-	  ErrorA=np.zeros(n_simul);ErrorB=np.zeros(n_simul)
-
+	
+	ErrorA=np.zeros(n_simul);ErrorB=np.zeros(n_simul)
+	#now measure the error between the predictd and the true
 	nums=[10,20,30]
 	EA=np.zeros(len(nums));EB=EA;EC=EA
-	EA_sum=0;EB_sum=0;EC_sum=0
 	for i,n_stop in enumerate(nums):
 		DIFF=np.zeros(n_simul)
 		for j in range(n_simul):
@@ -583,9 +649,7 @@ if __name__=='__main__':
 		  T_pred=PREDICTIONS['T'][j]
 		  X_pred=PREDICTIONS['X'][j]
 		  Y_pred=PREDICTIONS['Y'][j]
-		  
-		  
-		  
+				  
 		  indices=np.arange(n_stop)
 		  Et=sq_diff(T_pred[indices],simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop])
 		  Ey=sq_diff(Y_pred[indices],simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop])
@@ -613,9 +677,9 @@ if __name__=='__main__':
 		#print(np.mean(ErrorB))
 		#print(np.mean(ErrorC))
 
-		EA[i]=np.mean(ErrorA);EA_sum+=EA[i]
-		EB[i]=np.mean(ErrorB);EB_sum+=EB[i]
-		EC[i]=np.mean(ErrorC);EC_sum+=EC[i]
+		EA[i]=np.mean(ErrorA);
+		EB[i]=np.mean(ErrorB);
+		EC[i]=np.mean(ErrorC);
 
 		#### save the predictions
 
@@ -649,13 +713,13 @@ if __name__=='__main__':
 		#EC='prediction_error_C '+str(simulation_number)+' '+str(np.mean(ErrorC)) +'\n'
 		with open(filename+'prediction_error_A'+'.txt', 'a') as f:
 			f.write(str(EA[:])+'\n')
-			f.write('\n mean error A'+str(np.mean(EA))+'\n')
+			#f.write('\nMean prediction error for next 10 events'+str(np.mean(EA))+'\n')
 		with open(filename+'prediction_error_B'+'.txt', 'a') as f:			
-			f.write(str(EB)+'\n')
-			f.write('\n'+str(np.mean(EB))+'\n')
+			f.write(str(EB[:])+'\n')
+			#f.write('\nMean prediction error for next 20 events'+str(np.mean(EB))+'\n')
 		with open(filename+'prediction_error_C'+'.txt', 'a') as f:						
-			f.write(str(EC)+'\n')
-			f.write('\n'+str(np.mean(EC))+'\n')
+			f.write(str(EC[:])+'\n')
+			#f.write('\nMean prediction error for next 30 events'+str(np.mean(EC))+'\n')
 
 
 # visualize
