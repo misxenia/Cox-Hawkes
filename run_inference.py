@@ -1,5 +1,9 @@
 #####
 
+# to run from terminal fo
+##
+#python run_inference.py --dataset_name='LGCP_Hawkes' --simulation_number=0 --model_name='Hawkes' --num_samples=20 --num_warmup=0
+
 if __name__=='__main__':
     
 	import argparse
@@ -21,6 +25,7 @@ if __name__=='__main__':
 	my_parser.add_argument('--num_chains', action='store', default=1 , type=int,help='mcmc num chains')
 	my_parser.add_argument('--num_thinning', action='store', default=2, type=int,help='mcmc num thinning')
 	my_parser.add_argument('--max_tree_depth', action='store', default=20, type=int,help='max_tree_depth')
+	my_parser.add_argument('--save_results', action='store', default=True, type=bool,help='save output of mcmc')
 
     #num_chains, thinning
 	args = my_parser.parse_args()
@@ -29,9 +34,10 @@ if __name__=='__main__':
     #### choose simulated dataset to run inference on
 	data_name = args.dataset_name
 	model_name = args.model_name
+	save_me=args.save_results
 
-	print('data', data_name)
-	print('model', model_name)
+	print('Data generating model ', data_name)
+	print('Inference model is ', model_name)
     ## making sure have got correct file paths
     #script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
     
@@ -108,7 +114,6 @@ if __name__=='__main__':
 	  #Load 2d spatial trained decoder
 	  with open('./decoders/decoder_2d_n25_infer_hyperpars'.format(n), 'rb') as file:
 	      decoder_params = pickle.load(file)
-	      print(len(decoder_params))
 
 	  args_train["decoder_params_spatial"] = decoder_params
 	  
@@ -142,7 +147,7 @@ if __name__=='__main__':
 	rng_key, rng_key_predict = random.split(random.PRNGKey(3))
 	rng_key, rng_key_post, rng_key_pred = random.split(rng_key, 3)
 	
-	print('background of the process is', args_train['background'])
+	print('Background of the inference model is', args_train['background'])
 
 	if args_train['background']=='LGCP_only':
 	  model_mcmc=spatiotemporal_LGCP_model
@@ -169,11 +174,13 @@ if __name__=='__main__':
 	args_train['xy_events']=xy_events_total
 
 	# inference
+	print('Run inference for simulation', simulation_number)
 	mcmc = run_mcmc(rng_key_post, model_mcmc, args_train)
 	mcmc_samples=mcmc.get_samples()
+	print('Estimating', mcmc_samples.keys())
 
-	save_me=True
 
+	#save_me=True taken from the args with default True
 	data_folder='data_'+data_name+'/'
 	model_folder='model_'+model_name+'/'
 
@@ -181,7 +188,7 @@ if __name__=='__main__':
 
 	if save_me:
 		filename='output/'+folder_name+data_folder+model_folder	
-		print('saving results in', filename)
+		print('Saving results in ', filename)
 		output = {}
 		output['model']=model_mcmc
 		#output_dict['guide']=guide

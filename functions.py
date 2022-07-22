@@ -18,7 +18,6 @@ from functools import partial
 import numpyro
 import numpyro.distributions as dist
 from numpyro import optim
-from numpyro.infer import SVI, Trace_ELBO, MCMC, NUTS, init_to_median, Predictive, RenyiELBO
 from numpyro.diagnostics import hpdi
 from random import randint
 
@@ -405,6 +404,7 @@ def spatiotemporal_homogenous_poisson(args):
 
 #@title
 def rej_sampling_new(N, grid, gp_function, n):
+  
   f_max=np.max(gp_function);
   ids=np.arange(0, n)
   if N<100:

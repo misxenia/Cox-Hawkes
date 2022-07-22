@@ -1,4 +1,4 @@
-
+# python run_output_analysis.py --dataset_name 'LGCP_Hawkes' --simulation_number "$i" --model_name 'LGCP_Hawkes' #> "output/D1/D1M1S$i.txt"
 
 if __name__=='__main__':
     
@@ -25,9 +25,8 @@ if __name__=='__main__':
        
     #### choose simulated dataset to run inference on
 	data_name = args.dataset_name;
-	print('Data name',data_name)
 	model_name = args.model_name
-	print('Model name',model_name)
+
     ## making sure have got correct file paths
     #script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
     
@@ -43,15 +42,15 @@ if __name__=='__main__':
 	load_data=True
 
 	## choose the number of dataset
-	i=simulation_number
+	#i=simulation_number
 
 
 	#data_name='LGCP-Hawkes'
 	with open('data/'+data_name+'.pkl', 'rb') as file:
 		output_dict = dill.load(file)
-		simulated_output_Hawkes=output_dict['simulated_output_Hawkes'+str(i)]
-		simulated_output_Hawkes_train_test=output_dict['simulated_output_Hawkes_train_test'+str(i)]
-		simulated_output_Hawkes_background=output_dict['simulated_output_background '+str(i)]	
+		simulated_output_Hawkes=output_dict['simulated_output_Hawkes'+str(simulation_number)]
+		simulated_output_Hawkes_train_test=output_dict['simulated_output_Hawkes_train_test'+str(simulation_number)]
+		simulated_output_Hawkes_background=output_dict['simulated_output_background '+str(simulation_number)]	
 		args_train=output_dict['args_train']
 		args=output_dict['args']
 		data_name=output_dict['data_name']
@@ -62,9 +61,7 @@ if __name__=='__main__':
 		alpha=args['alpha']
 		beta=args['beta']
 
-	print('Data name',data_name)
 
-	print('Model name',model_name)
 	# read output
 	if data_name=='LGCP_Hawkes' or 'LGCP-Hawkes':
 		data_folder='data_LGCP_Hawkes/'
@@ -72,10 +69,14 @@ if __name__=='__main__':
 		model_folder='model_LGCP_Hawkes/'
 	if model_name=='LGCP':
 		model_folder='model_LGCP/'
+	if model_name=='Hawkes':
+		model_folder='model_Hawkes/'
 
-	print('model_folder', model_folder)
+	print('Data generating name',data_name)
+	print('Inference model name',model_name)
+
 	filename='output/simulation_comparison/'+data_folder+model_folder
-	print(filename)
+	print('Getting data from', filename)
 
 	with open(filename+'output'+str(simulation_number)+'.pkl', 'rb') as file:
 		output = dill.load(file)
@@ -83,6 +84,7 @@ if __name__=='__main__':
 		mcmc_samples=output['samples']
 		mcmc=output['mcmc']
 		args_train=output['args_train']
+		print('mcmc parameters', mcmc_samples.keys())
 
 
 	if model_name=='LGCP_only':
@@ -217,10 +219,13 @@ if __name__=='__main__':
 
 	if args_train['background']=='LGCP_only':
 	  model_mcmc=spatiotemporal_LGCP_model
+	  print('Inference model has background',args_train['background'])
 	elif args_train['background']=='Poisson':
 	  model_mcmc=spatiotemporal_homogenous_poisson
+	  print('Inference model has background',args_train['background'])
 	else:
 	  model_mcmc=spatiotemporal_hawkes_model
+	  print('Inference model has background',args_train['background'])
 
 
 	#model_mcmc=spatiotemporal_hawkes_model
@@ -243,6 +248,8 @@ if __name__=='__main__':
 	a_0_post_mean=np.array(mcmc_samples['a_0'][n_total-post_samples:n_total].mean())
 	a_0_post_samples=np.array(mcmc_samples['a_0'][n_total-post_samples:n_total])
 
+
+	#TRUE PARAMETERS
 	ft_true=simulated_output_Hawkes_background['f_t'].flatten()
 	f_xy_true=simulated_output_Hawkes_background['f_xy'].flatten()
 	rate_xy_true=simulated_output_Hawkes_background['rate_xy'].flatten()
@@ -363,7 +370,6 @@ if __name__=='__main__':
 	  sigma_x_2_post_samples=np.array(mcmc_samples['sigmax_2'][n_total-post_samples:n_total])
 
 
-
 	def normal_dist(mean,var,num_samples=args_train["z_dim_temporal"]):
 	  z_temporal=numpyro.sample("z_temporal",dist.Normal(mean, var).expand([num_samples]))
 
@@ -383,7 +389,7 @@ if __name__=='__main__':
 
 	args_test={}
 	
-	n_simul=100
+	n_simul=50
 
 	args_test['n_t']=80
 	args_test['x_t']=np.arange(0,args['T'],1)
@@ -404,18 +410,16 @@ if __name__=='__main__':
 	  args_test['hidden_dim1_spatial']=args_train["hidden_dim1_spatial"]
 	  args_test['hidden_dim2_spatial']=args_train["hidden_dim2_spatial"]
 	  args_test['decoder_params_spatial']=args_train["decoder_params_spatial"]
-
 	  args_test['a_0_post_mean']=a_0_post_mean
+
 
 
 	def sample_GP(args,typ='posterior'):
 	  a_0=a_0_post_mean
-
 	  if typ=='prior':
 	    z_temporal= numpyro.sample("z_temporal",dist.Normal(jnp.zeros(args["z_dim_temporal"])), jnp.ones(args["z_dim_temporal"]))
 	  else:
 	    z_temporal=numpyro.deterministic("z_temporal",np.mean(mcmc_samples['z_temporal'][args['n_total']-args['n_samples']:args['n_total']],0))
-
 	  decoder_nn_temporal = vae_decoder_temporal(args["hidden_dim_temporal"], args["n_t"])  
 	  decoder_params = args["decoder_params_temporal"]
 	  v_t = numpyro.deterministic("v_t", decoder_nn_temporal[1](decoder_params, z_temporal))
@@ -442,31 +446,25 @@ if __name__=='__main__':
 	  Itot_txy_back=numpyro.deterministic("Itot_txy_back",Itot_t*Itot_xy)#jnp.sum(mu_xyt*args['T']/args['n_t']/args['n']**2))
 
 
+	if args_train['background']!='constant':
+		GP_predictive = Predictive(sample_GP, num_samples=n_simul)
+		GP_predictive_samples = GP_predictive(rng_key, args_test, 'post')
+		if save_me:
+			mypath='GPt_post_test.png'
+			plt.savefig(filename+mypath)
 
+		f_xy_post_mean=GP_predictive_samples['f_xy'][0]
+		#f_xy_post_di = hpdi(f_xy_post, 0.9)
 
-	GP_predictive = Predictive(sample_GP, num_samples=n_simul)
-	GP_predictive_samples = GP_predictive(rng_key, args_test, 'post')
-
-	#plt.plot(np.exp(GP_predictive_samples['f_t'][0]+a_0_post_mean))
-	#plt.hist(simulated_output_Hawkes['G_tot_t'][0])
-	#plt.plot(GP_predictive_samples['f_t'][0])
-
-	if save_me:
-		mypath='GPt_post_test.png'
-		plt.savefig(filename+mypath)
-
-	f_xy_post_mean=GP_predictive_samples['f_xy'][0]
-	#f_xy_post_di = hpdi(f_xy_post, 0.9)
-
-	fig, ax = plt.subplots(1,1, figsize=(10, 5))
-	_min, _max = np.amin(f_xy_post_mean), np.amax(f_xy_post_mean)
-	n=25
-	im = ax.imshow(f_xy_post_mean.reshape(n,n), cmap='viridis', interpolation='none', extent=[0,1,0,1], origin='lower',vmin=_min, vmax=_max)
-	ax.title.set_text('Predictive test f_xy')
-	fig.colorbar(im, ax=ax)
-	if save_me:
-		mypath='GPxy_post_test.png'
-		plt.savefig(filename+mypath)
+		fig, ax = plt.subplots(1,1, figsize=(10, 5))
+		_min, _max = np.amin(f_xy_post_mean), np.amax(f_xy_post_mean)
+		n=25
+		im = ax.imshow(f_xy_post_mean.reshape(n,n), cmap='viridis', interpolation='none', extent=[0,1,0,1], origin='lower',vmin=_min, vmax=_max)
+		ax.title.set_text('Predictive test f_xy')
+		fig.colorbar(im, ax=ax)
+		if save_me:
+			mypath='GPxy_post_test.png'
+			plt.savefig(filename+mypath)
 
 
 	if args_train['background']!='constant':
@@ -536,25 +534,31 @@ if __name__=='__main__':
 	  
 	  ax.plot(T_pred,'red')
 	  ax.plot(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:])
-
-
 	'''
 
-	post_mean=True
-	f_t_pred_mean=jnp.array(np.mean(GP_predictive_samples['f_t'][:,:],0));
-	f_xy_pred_mean=np.mean(GP_predictive_samples['f_xy'],0);
+	#
+	# Simulate the predictions
+	#
 
+	post_mean=True
+
+	if args_train['background'] in ['LGCP_only', 'LGCP']:
+		f_t_pred_mean=jnp.array(np.mean(GP_predictive_samples['f_t'][:,:],0));
+		f_xy_pred_mean=np.mean(GP_predictive_samples['f_xy'],0);
+
+
+	
 	x_min, x_max, y_min, y_max=0,1,0,1
 	T_test=80
 	T_train=50
 
-	n_simul=100
+	#n_simul=100
 
 	PREDICTIONS={};TRUE={}
 	PREDICTIONS['T']=np.zeros((n_simul,n_test));PREDICTIONS['X']=np.zeros((n_simul,n_test));PREDICTIONS['Y']=np.zeros((n_simul,n_test))
 	TRUE['T']=np.zeros((n_simul,n_test));TRUE['X']=np.zeros((n_simul,n_test));TRUE['Y']=np.zeros((n_simul,n_test))
 
-	rng_key, rng_key_predict = random.split(random.PRNGKey(2))
+	rng_key, rng_key_predict = random.split(random.PRNGKey(1))
 	gp_predictive = Predictive(spatiotemporal_GP, num_samples=n_simul)
 	GP_prior_samples = gp_predictive(rng_key_predict, args['T'], args['x_t'], args['x_xy'], gp_kernel=exp_sq_kernel, jitter=1e-5, a_0=0, b_0=0,  var_t=1, length_t=10, var_xy=1, length_xy=.25)
 
@@ -562,7 +566,7 @@ if __name__=='__main__':
 
 	for j in range(0,n_simul):
 	  if j%20 ==0:
-	    print('simulating',j, 'th sequence')
+	    print('simulating',j,'th sequence')
 	    #simulate from the underlying process 
 
 	  T_true_test, X_true_test, Y_true_test, T_pred_all_test, X_pred_all_test,Y_pred_all_test=simulate_spatiotemporal_hawkes_predictions(past_times, 
@@ -600,8 +604,8 @@ if __name__=='__main__':
 	      
 	  elif args_train['background']=='LGCP_only':
 	    if post_mean:
-	      N_0=n_test
-	      ind_t_i, t_i, rate_t_i=rej_sampling_new(N_0, np.arange(args_train['T'], T_test,1), lambda_0_post_mean*np.exp(f_t_pred_mean[T_train:]), 30)
+	      N_0=n_test;
+	      ind_t_i, t_i, rate_t_i=rej_sampling_new(N_0, np.arange(T_train, T_test, 1), lambda_0_post_mean*np.exp(f_t_pred_mean[T_train:]), 30)
 	      N_0 = t_i.shape[0]
 	      ind_xy_i, xy_i, rate_xy_i=rej_sampling_new(N_0, args['x_xy'], GP_predictive_samples['rate_xy'][j,:], args['n_xy']**2)
 	      ord=t_i.sort()
@@ -614,7 +618,7 @@ if __name__=='__main__':
 
 	    else:
 	      N_0=n_test
-	      ind_t_i, t_i, rate_t_i=rej_sampling_new(N_0, np.arange(args_train['T'], T_test,1), lambda_0_post_samples[j]*np.exp(GP_predictive_samples['f_t'][j][args_train['T']:]), 30)
+	      ind_t_i, t_i, rate_t_i=rej_sampling_new(N_0, np.arange(T_train, T_test,1), lambda_0_post_samples[j]*np.exp(GP_predictive_samples['f_t'][j][args_train['T']:]), 30)
 	      N_0 = t_i.shape[0]
 	      ind_xy_i, xy_i, rate_xy_i=rej_sampling_new(N_0, args['x_xy'], GP_predictive_samples['rate_xy'][j,:], args['n_xy']**2)
 	      ord=t_i.sort()
@@ -626,100 +630,152 @@ if __name__=='__main__':
 	      Y_pred_all=np.concatenate((past_locs[1],Y_pred.flatten()))
 	  
 	  #store the predicted and the true events
-	  PREDICTIONS['T'][j]=np.round(T_pred)
-	  PREDICTIONS['X'][j]=np.round(X_pred)
-	  PREDICTIONS['Y'][j]=np.round(Y_pred)
+	  PREDICTIONS['T'][j]=T_pred#np.round(T_pred)
+	  PREDICTIONS['X'][j]=X_pred#np.round(X_pred)
+	  PREDICTIONS['Y'][j]=Y_pred#np.round(Y_pred)
 
-	  TRUE['T'][j]=np.round(T_true_test)
-	  TRUE['X'][j]=np.round(X_true_test)
-	  TRUE['Y'][j]=np.round(Y_true_test)
+	  TRUE['T'][j]=T_true_test#np.round(T_true_test)
+	  TRUE['X'][j]=X_true_test#np.round(X_true_test)
+	  TRUE['Y'][j]=Y_true_test#np.round(Y_true_test)
 	  
 	
-	ErrorA=np.zeros(n_simul);ErrorB=np.zeros(n_simul)
-	#now measure the error between the predictd and the true
+	with open(filename+'prediction_events'+'.txt', 'a') as f:						
+		f.write(str(PREDICTIONS['T'])+'\n')
+
+	with open(filename+'true_events'+'.txt', 'a') as f:						
+		f.write(str(TRUE['T'])+'\n')
+
+
+	#
+	# Measure the error between the predictd and the true
+	#
 	nums=[10,20,30]
-	EA=np.zeros(len(nums));EB=EA;EC=EA
-	for i,n_stop in enumerate(nums):
+
+	ErrorA_space=np.zeros(n_simul);ErrorA_t=np.zeros(n_simul);
+	ErrorB_space=np.zeros(n_simul);ErrorB_t=np.zeros(n_simul);
+	EA_mean_space=np.zeros(len(nums));EA_mean_t=np.zeros(len(nums));
+	EB_mean_space=np.zeros(len(nums));EB_mean_t=np.zeros(len(nums))
+	EA_std_space=np.zeros(len(nums));EA_std_t=np.zeros(len(nums));
+	EB_std_space=np.zeros(len(nums));EB_std_t=np.zeros(len(nums));
+
+	for ii,n_stop in enumerate(nums):
+		print('n_stop')
 		DIFF=np.zeros(n_simul)
+		
 		for j in range(n_simul):
-		  T_true_test=TRUE['T'][j];T_true_test=np.round(T_true_test+np.random.normal(0,0.3))
-		  X_true_test=TRUE['X'][j];X_true_test=np.round(X_true_test)
-		  Y_true_test=TRUE['Y'][j];Y_true_test=np.round(Y_true_test)
+		  T_true_test=TRUE['T'][j];T_true_test=T_true_test#np.round(T_true_test+np.random.normal(0,0.3))
+		  X_true_test=TRUE['X'][j];X_true_test=X_true_test#np.round(X_true_test)
+		  Y_true_test=TRUE['Y'][j];Y_true_test=Y_true_test#np.round(Y_true_test)
 		  
 		  T_pred=PREDICTIONS['T'][j]
 		  X_pred=PREDICTIONS['X'][j]
 		  Y_pred=PREDICTIONS['Y'][j]
 				  
 		  indices=np.arange(n_stop)
-		  Et=sq_diff(T_pred[indices],simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop])
-		  Ey=sq_diff(Y_pred[indices],simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop])
-		  Ex=sq_diff(X_pred[indices],simulated_output_Hawkes_train_test['G_tot_x_test'][0,:n_stop])
-		  ErrorA[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
+		  Et=square_mean(T_pred[indices],simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop])
+		  Ey=square_mean(Y_pred[indices],simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop])
+		  Ex=square_mean(X_pred[indices],simulated_output_Hawkes_train_test['G_tot_x_test'][0,:n_stop])
+		  ErrorA_space[j]=np.sqrt(Ex+Ey)
+		  ErrorA_t[j]=np.sqrt(Et)
 
-		  Et=sq_diff(np.mean(TRUE['T'],0)[indices],T_pred[indices])
-		  Ex=sq_diff(np.mean(TRUE['X'],0)[indices],X_pred[indices])
-		  Ey=sq_diff(np.mean(TRUE['Y'],0)[indices],Y_pred[indices])
-		  ErrorB[j]=np.sqrt(Ex+Ey)+np.sqrt(+Et)
+		  Et=square_mean(np.mean(TRUE['T'],0)[indices],T_pred[indices])
+		  Ex=square_mean(np.mean(TRUE['X'],0)[indices],X_pred[indices])
+		  Ey=square_mean(np.mean(TRUE['Y'],0)[indices],Y_pred[indices])
+		  ErrorB_space[j]=np.sqrt(Ex+Ey)
+		  ErrorB_t[j]=np.sqrt(Et)
 
 
-		Et=sq_diff(np.mean(TRUE['T'],0)[indices],np.mean(PREDICTIONS['T'],0)[indices])
-		Ex=sq_diff(np.mean(TRUE['X'],0)[indices],np.mean(PREDICTIONS['X'],0)[indices])
-		Ey=sq_diff(np.mean(TRUE['Y'],0)[indices],np.mean(PREDICTIONS['Y'],0)[indices])
+		#Et=sq_diff(np.mean(TRUE['T'],0)[indices],np.mean(PREDICTIONS['T'],0)[indices])
+		#Ex=sq_diff(np.mean(TRUE['X'],0)[indices],np.mean(PREDICTIONS['X'],0)[indices])
+		#Ey=sq_diff(np.mean(TRUE['Y'],0)[indices],np.mean(PREDICTIONS['Y'],0)[indices])
 
 		#Et=sq_diff(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:n_stop],np.mean(PREDICTIONS['T'],0)[indices])
 		#Ex=sq_diff(simulated_output_Hawkes_train_test['G_tot_x_test'][0,:n_stop],np.mean(PREDICTIONS['X'],0)[indices])
 		#Ey=sq_diff(simulated_output_Hawkes_train_test['G_tot_y_test'][0,:n_stop],np.mean(PREDICTIONS['Y'],0)[indices])
 
+		print('Predicting the next', n_stop, 'events')
+		EA_mean_space[ii]=np.mean(ErrorA_space);
+		EA_mean_t[ii]=np.mean(ErrorA_t);
+		
+		EA_std_space[ii]=np.std(ErrorA_space);
+		EA_std_t[ii]=np.std(ErrorA_t);
 
-		ErrorC=np.sqrt(Ex+Ey)+np.sqrt(+Et)
-
-		#print(np.mean(ErrorA))
-		#print(np.mean(ErrorB))
-		#print(np.mean(ErrorC))
-
-		EA[i]=np.mean(ErrorA);
-		EB[i]=np.mean(ErrorB);
-		EC[i]=np.mean(ErrorC);
+		EB_mean_space[ii]=np.mean(ErrorB_space);
+		EB_mean_t[ii]=np.mean(ErrorB_t);
+		
+		EB_std_space[ii]=np.std(ErrorB_space);
+		EB_std_t[ii]=np.std(ErrorB_t);
+		#print('std dev of B',np.round(EB_std[ii],3))
+		#EC[i,0]=np.mean(ErrorC);print('mean of C',np.round(np.mean(ErrorC),2))
+		#EC[i,1]=np.std(ErrorC);print('std dev of C',np.round(np.std(ErrorC),3))
 
 		#### save the predictions
 
+		#fig,ax=plt.subplots(1,1,figsize=(10,5))
+		#ax.plot(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:],'blue',label='simulated')
+		#f_tpred_hpdi = hpdi(PREDICTIONS['T'], 0.9)
+		#f_tpred_mean=np.mean(PREDICTIONS['T'],0)
 
-		fig,ax=plt.subplots(1,1,figsize=(10,5))
-		ax.plot(simulated_output_Hawkes_train_test['G_tot_t_test'][0,:],'blue',label='simulated')
-		f_tpred_hpdi = hpdi(PREDICTIONS['T'], 0.9)
-		f_tpred_mean=np.mean(PREDICTIONS['T'],0)
-
-		ax.plot(f_tpred_mean,'red',label='post_pred_mean')
-		ax.fill_between(np.arange(0,n_test), f_tpred_hpdi[0], f_tpred_hpdi[1], alpha=0.4, color="palegoldenrod", label="90%CI rate")
-		plt.legend()
+		#ax.plot(f_tpred_mean,'red',label='post_pred_mean')
+		#ax.fill_between(np.arange(0,n_test), f_tpred_hpdi[0], f_tpred_hpdi[1], alpha=0.4, color="palegoldenrod", label="90%CI rate")
+		#plt.legend()
 
 
 		#each column gives a different way to calculate the error for each of the 
-		save_me=True
+	save_me=True
 		#data_folder='data_LGCP_Hawkes/'
 		#model_folder='model_LGCP_Hawkes/'
 		#folder_name='simulation_comparison/'
 
 	if save_me:
-		#output_dict={}
-		#output_dict['prediction_error_A '+str(simulation_number)]=np.mean(ErrorA)
-		#output_dict['prediction_error_B '+str(simulation_number)]=np.mean(ErrorB)
-		#output_dict['prediction_error_C '+str(simulation_number)]=np.mean(ErrorC)
-	  
-		#with open(filename+'prediction_error'+'.pkl', 'a+') as handle:
-		#dill.dump(output_dict, handle)
-		#EA='prediction_error_A'+str(simulation_number)+' '+str(np.mean(ErrorA)) +'\n'
-		#EB='prediction_error_B '+str(simulation_number)+' '+str(np.mean(ErrorB)) +'\n'
-		#EC='prediction_error_C '+str(simulation_number)+' '+str(np.mean(ErrorC)) +'\n'
-		with open(filename+'prediction_error_A'+'.txt', 'a') as f:
-			f.write(str(EA[:])+'\n')
-			#f.write('\nMean prediction error for next 10 events'+str(np.mean(EA))+'\n')
-		with open(filename+'prediction_error_B'+'.txt', 'a') as f:			
-			f.write(str(EB[:])+'\n')
-			#f.write('\nMean prediction error for next 20 events'+str(np.mean(EB))+'\n')
-		with open(filename+'prediction_error_C'+'.txt', 'a') as f:						
-			f.write(str(EC[:])+'\n')
-			#f.write('\nMean prediction error for next 30 events'+str(np.mean(EC))+'\n')
+		print('Saving data in', filename)
+
+	#output_dict={}
+	#output_dict['prediction_error_A '+str(simulation_number)]=np.mean(ErrorA)
+	#output_dict['prediction_error_B '+str(simulation_number)]=np.mean(ErrorB)
+	#output_dict['prediction_error_C '+str(simulation_number)]=np.mean(ErrorC)
+  
+	#with open(filename+'prediction_error'+'.pkl', 'a+') as handle:
+	#dill.dump(output_dict, handle)
+	#EA='prediction_error_A'+str(simulation_number)+' '+str(np.mean(ErrorA)) +'\n'
+	#EB='prediction_error_B '+str(simulation_number)+' '+str(np.mean(ErrorB)) +'\n'
+	#EC='prediction_error_C '+str(simulation_number)+' '+str(np.mean(ErrorC)) +'\n'
+	
+	my_listA=[];
+	my_listB=[]
+	for index,n_stop in enumerate(nums):
+		with open (filename+'mean_prediction_error_A_space_'+str(n_stop)+'.txt','a') as f:
+		  #my_listA.append(EA_mean_space[index])
+		  #print('EA_mean_space[i]',np.round(EA_mean_space[index],3))
+		  #print(EA_mean_space[index])
+		  f.write(str(EA_mean_space[index])+'\n')
+		
+		with open (filename+'mean_prediction_error_A_time_'+str(n_stop)+'.txt','a') as f:
+		  #my_listA.append(EA_mean_t[index])
+		  #print('EA_mean_t[i]',np.round(EA_mean_t[index],3))
+		  #print(EA_mean_t[index])
+		  f.write(str(EA_mean_t[index])+'\n')
+
+		with open (filename+'std_prediction_error_A_space_'+str(n_stop)+'.txt','a') as f:
+		  f.write(str(EA_std_space[index])+'\n')
+
+		with open (filename+'std_prediction_error_A_time_'+str(n_stop)+'.txt','a') as f:
+		  f.write(str(EA_std_t[index])+'\n')
 
 
-# visualize
+		with open(filename+'mean_prediction_error_B_space_'+str(n_stop)+'.txt', 'a') as f:
+			#my_listB.append(EB_mean_space[index])
+			f.write(str(EB_mean_space[index])+'\n')
+
+		with open(filename+'mean_prediction_error_B_time_'+str(n_stop)+'.txt', 'a') as f:
+			#my_listB.append(EB_mean_time[index])
+			f.write(str(EB_mean_t[index])+'\n')
+
+		with open(filename+'std_prediction_error_B_space_'+str(n_stop)+'.txt', 'a') as f:
+		#	my_listB.append(EB[ii,1])
+			f.write(str(EB_std_space[index])+'\n')
+
+		with open(filename+'std_prediction_error_B_time_'+str(n_stop)+'.txt', 'a') as f:
+		#	my_listB.append(EB[ii,1])
+			f.write(str(EB_std_t[index])+'\n')
+
